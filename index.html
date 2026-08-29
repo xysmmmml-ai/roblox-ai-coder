@@ -68,37 +68,9 @@
   </div>
 
   <script>
-    async function getAvailableModel(apiKey) {
-      try {
-        const res = await fetch('https://api.groq.com/openai/v1/models', {
-          headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        const data = await res.json();
-        if (data.data && data.data.length > 0) {
-          -- Priority list of standard non-restricted text models
-          const allowedModels = [
-            'llama-3.3-70b-versatile',
-            'llama-3.1-8b-instant',
-            'llama3-8b-8192',
-            'mixtral-8x7b-32768',
-            'gemma2-9b-it'
-          ];
-          for (const model of allowedModels) {
-            if (data.data.some(m => m.id === model)) return model;
-          }
-          -- Fallback: filter out non-llama or restricted prefixes
-          const safeModel = data.data.find(m => m.id.includes('llama') || m.id.includes('mixtral'));
-          if (safeModel) return safeModel.id;
-        }
-      } catch (e) {
-        console.warn('Could not fetch dynamic models, using default.');
-      }
-      return 'llama-3.1-8b-instant';
-    }
-
     async function generateCode() {
-      const apiKey = document.getElementById('apiKey').value;
-      const prompt = document.getElementById('prompt').value;
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const prompt = document.getElementById('prompt').value.trim();
       const engine = document.getElementById('engine').value;
       const btn = document.getElementById('generateBtn');
       const container = document.getElementById('outputContainer');
@@ -113,8 +85,6 @@
       output.innerText = 'Connecting to AI...';
 
       try {
-        const activeModel = await getAvailableModel(apiKey);
-
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -122,23 +92,32 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: activeModel,
+            model: 'llama-3.3-70b-versatile',
             messages: [
-              { role: 'system', content: `You are an expert ${engine} developer. Write clean, production-ready code. For Roblox, specify script locations (ServerScriptService, StarterPlayerScripts, etc).` },
-              { role: 'user', content: prompt }
+              { 
+                role: 'system', 
+                content: `You are an expert ${engine} developer. Write clean, production-ready code. For Roblox, specify script locations clearly.` 
+              },
+              { 
+                role: 'user', 
+                content: prompt 
+              }
             ],
             temperature: 0.2
           })
         });
 
         const data = await res.json();
-        if (data.choices && data.choices[0]) {
+        
+        if (data.choices && data.choices[0] && data.choices[0].message) {
           output.innerText = data.choices[0].message.content;
+        } else if (data.error) {
+          output.innerText = 'Error from Groq: ' + data.error.message;
         } else {
-          output.innerText = 'Error: ' + JSON.stringify(data);
+          output.innerText = 'Unexpected response format: ' + JSON.stringify(data);
         }
       } catch (err) {
-        output.innerText = 'Failed to generate code. Check your API key and connection.';
+        output.innerText = 'Network error. Please check your internet connection and API key.';
       } finally {
         btn.innerText = 'Generate Code';
         btn.disabled = false;
