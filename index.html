@@ -87,8 +87,7 @@
               content: promptText 
             }
           ],
-          temperature: 0.2,
-          max_tokens: 4096
+          temperature: 0.2
         })
       });
     }
@@ -110,17 +109,16 @@
         return;
       }
 
-      // Show output box immediately to display loading/error status
       container.classList.remove('hidden');
       output.innerText = 'Connecting to Groq API...';
       btn.innerText = 'Generating Script...';
       btn.disabled = true;
 
-      // Active Groq models (Updated for 2026 availability)
+      // Active, supported Groq models
       const models = [
-        'llama-3.3-70b-versatile',
-        'llama-3.1-8b-instant',
-        'mixtral-8x7b-32768'
+        'openai/gpt-oss-120b',
+        'openai/gpt-oss-20b',
+        'qwen/qwen3.6-27b'
       ];
 
       let success = false;
@@ -143,7 +141,7 @@
             }
           }
         } catch (err) {
-          output.innerText = 'Network/CORS error: ' + err.message;
+          output.innerText = 'Network error: ' + err.message;
         }
       }
 
