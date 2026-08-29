@@ -21,7 +21,6 @@
 <body class="text-stone-700 min-h-screen p-6">
   <div class="max-w-4xl mx-auto space-y-6">
     
-    <!-- Vintage Header -->
     <header class="border-b border-rose-200/60 pb-5 text-center md:text-left">
       <h1 class="serif-title text-4xl font-semibold text-rose-900/80 tracking-wide">
         Roblox AI Script Generator
@@ -30,13 +29,11 @@
     </header>
 
     <div class="bg-white/70 backdrop-blur-md border border-rose-100 rounded-2xl p-6 shadow-sm space-y-5">
-      <!-- API Key Field -->
       <div>
         <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">Groq API Key</label>
         <input id="apiKey" type="password" placeholder="Paste your gsk_... key here" class="w-full bg-stone-50/80 border border-rose-200/80 rounded-xl p-3 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-rose-300 text-sm transition-all">
       </div>
 
-      <!-- Prompt Input Grid -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div class="md:col-span-2">
           <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">What script do you want to build?</label>
@@ -60,7 +57,6 @@
       </div>
     </div>
 
-    <!-- Output Container -->
     <div id="outputContainer" class="hidden space-y-2">
       <div class="flex justify-between items-center px-1">
         <label class="text-xs font-semibold uppercase tracking-wider text-stone-500">Generated Code</label>
@@ -72,6 +68,26 @@
   </div>
 
   <script>
+    async function getAvailableModel(apiKey) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/models', {
+          headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
+        const data = await res.json();
+        if (data.data && data.data.length > 0) {
+          // Find active model or fallback to dynamic select
+          const preferredModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-8b-8192', 'mixtral-8x7b-32768'];
+          for (const model of preferredModels) {
+            if (data.data.some(m => m.id === model)) return model;
+          }
+          return data.data[0].id;
+        }
+      } catch (e) {
+        console.warn('Could not fetch dynamic models, using fallback.');
+      }
+      return 'llama-3.3-70b-versatile';
+    }
+
     async function generateCode() {
       const apiKey = document.getElementById('apiKey').value;
       const prompt = document.getElementById('prompt').value;
@@ -86,9 +102,11 @@
       btn.innerText = 'Generating Script...';
       btn.disabled = true;
       container.classList.remove('hidden');
-      output.innerText = 'Talking to AI...';
+      output.innerText = 'Connecting to AI...';
 
       try {
+        const activeModel = await getAvailableModel(apiKey);
+
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -96,7 +114,7 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
+            model: activeModel,
             messages: [
               { role: 'system', content: `You are an expert ${engine} developer. Write clean, production-ready code. For Roblox, specify script locations (ServerScriptService, StarterPlayerScripts, etc).` },
               { role: 'user', content: prompt }
