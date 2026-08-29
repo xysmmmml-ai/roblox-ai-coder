@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roblox AI Script Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-6 font-sans">
+  <div class="max-w-4xl mx-auto space-y-6">
+    
+    <header class="border-b border-slate-800 pb-4">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+        Roblox AI Script Generator
+      </h1>
+      <p class="text-slate-400 text-sm mt-1">Generate clean Luau scripts instantly for Roblox Studio.</p>
+    </header>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Groq API Key</label>
+        <input id="apiKey" type="password" placeholder="Paste your gsk_... key here" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">What script do you want to build?</label>
+          <textarea id="prompt" class="w-full h-32 bg-slate-900 border border-slate-800 rounded-lg p-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm" placeholder="e.g. Create a leaderstats script that saves player coins to DataStore when they leave..."></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Target Platform</label>
+          <select id="engine" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm mb-4">
+            <option value="Roblox Studio">Roblox (Luau)</option>
+            <option value="Unity C#">Unity (C#)</option>
+            <option value="Godot GDScript">Godot (GDScript)</option>
+          </select>
+
+          <button id="generateBtn" onclick="generateCode()" class="w-full bg-red-600 hover:bg-red-500 text-white font-medium py-3 rounded-lg transition-colors text-sm">
+            Generate Code
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="outputContainer" class="hidden space-y-2">
+      <div class="flex justify-between items-center">
+        <label class="text-xs font-semibold uppercase text-slate-400">Generated Code</label>
+        <button onclick="copyCode()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded">Copy Code</button>
+      </div>
+      <pre id="outputCode" class="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap"></pre>
+    </div>
+
+  </div>
+
+  <script>
+    async function generateCode() {
+      const apiKey = document.getElementById('apiKey').value;
+      const prompt = document.getElementById('prompt').value;
+      const engine = document.getElementById('engine').value;
+      const btn = document.getElementById('generateBtn');
+      const container = document.getElementById('outputContainer');
+      const output = document.getElementById('outputCode');
+
+      if (!apiKey) return alert('Please enter your Groq API key.');
+      if (!prompt) return alert('Please enter a description for the script.');
+
+      btn.innerText = 'Generating Script...';
+      btn.disabled = true;
+      container.classList.remove('hidden');
+      output.innerText = 'Talking to AI...';
+
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: `You are an expert ${engine} developer. Write clean, production-ready code. For Roblox, specify script locations (ServerScriptService, StarterPlayerScripts, etc).` },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.2
+          })
+        });
+
+        const data = await res.json();
+        if (data.choices && data.choices[0]) {
+          output.innerText = data.choices[0].message.content;
+        } else {
+          output.innerText = 'Error: ' + JSON.stringify(data);
+        }
+      } catch (err) {
+        output.innerText = 'Failed to generate code. Check your API key and connection.';
+      } finally {
+        btn.innerText = 'Generate Code';
+        btn.disabled = false;
+      }
+    }
+
+    function copyCode() {
+      const code = document.getElementById('outputCode').innerText;
+      navigator.clipboard.writeText(code);
+      alert('Code copied to clipboard!');
+    }
+  </script>
+</body>
+</html>
