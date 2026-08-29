@@ -75,17 +75,25 @@
         });
         const data = await res.json();
         if (data.data && data.data.length > 0) {
-          // Find active model or fallback to dynamic select
-          const preferredModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-8b-8192', 'mixtral-8x7b-32768'];
-          for (const model of preferredModels) {
+          -- Priority list of standard non-restricted text models
+          const allowedModels = [
+            'llama-3.3-70b-versatile',
+            'llama-3.1-8b-instant',
+            'llama3-8b-8192',
+            'mixtral-8x7b-32768',
+            'gemma2-9b-it'
+          ];
+          for (const model of allowedModels) {
             if (data.data.some(m => m.id === model)) return model;
           }
-          return data.data[0].id;
+          -- Fallback: filter out non-llama or restricted prefixes
+          const safeModel = data.data.find(m => m.id.includes('llama') || m.id.includes('mixtral'));
+          if (safeModel) return safeModel.id;
         }
       } catch (e) {
-        console.warn('Could not fetch dynamic models, using fallback.');
+        console.warn('Could not fetch dynamic models, using default.');
       }
-      return 'llama-3.3-70b-versatile';
+      return 'llama-3.1-8b-instant';
     }
 
     async function generateCode() {
