@@ -1,288 +1,150 @@
 <script>
-  const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
-  // Current Groq models.
-  // GPT-OSS 120B is the primary model because this app generates
-  // large, complicated Roblox/Luau projects.
-  const PRIMARY_MODEL = 'openai/gpt-oss-120b';
-  const BACKUP_MODEL = 'openai/gpt-oss-20b';
-
-  async function queryGroq(apiKey, promptText, engineName, modelId) {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: modelId,
-
-        messages: [
-          {
-            role: 'system',
-            content:
-              `You are an expert software engineer and game developer.
-
-You are generating ${engineName} code.
-
-For Roblox Studio:
-- Use valid Roblox Luau.
-- Clearly label every script/module.
-- Clearly state where every script belongs.
-- Prefer modular architecture over giant scripts.
-- Use ModuleScripts for reusable systems.
-- Use RemoteEvents and RemoteFunctions correctly.
-- Keep important game logic server-authoritative.
-- Never expose API keys or secrets in generated Roblox code.
-- Do not use deprecated Roblox APIs.
-- Do not provide fake APIs or nonexistent Roblox services.
-- If a requested feature requires a 3D model, animation, sound, image, or other asset that cannot be created purely with Luau, provide a working placeholder and explain where the asset belongs.
-- Provide complete code for core functionality rather than pseudocode.
-- Make systems expandable and maintainable.
-
-If the user asks for a large game, split it into multiple clearly labeled scripts and modules rather than attempting to place everything into one script.`
-          },
-
-          {
-            role: 'user',
-            content: promptText
-          }
-        ],
-
-        temperature: 0.2,
-
-        // Allows the model to generate large Roblox systems.
-        max_completion_tokens: 65536
-      })
-    });
-
-    return response;
-  }
-
+  const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+  const GROQ_MODEL = "openai/gpt-oss-20b";
 
   async function generateCode() {
-    const apiKey = document.getElementById('apiKey').value.trim();
-    const prompt = document.getElementById('prompt').value.trim();
-    const engine = document.getElementById('engine').value;
+    const apiKey = document.getElementById("apiKey").value.trim();
+    const prompt = document.getElementById("prompt").value.trim();
+    const engine = document.getElementById("engine").value;
 
-    const btn = document.getElementById('generateBtn');
-    const container = document.getElementById('outputContainer');
-    const output = document.getElementById('outputCode');
+    const button = document.getElementById("generateBtn");
+    const container = document.getElementById("outputContainer");
+    const output = document.getElementById("outputCode");
 
     if (!apiKey) {
-      alert('Please enter your Groq API key.');
+      alert("Please enter your Groq API key.");
       return;
     }
 
     if (!prompt) {
-      alert('Please enter a description for the script.');
+      alert("Please enter a description for the script.");
       return;
     }
 
-    btn.innerText = 'Generating Script...';
-    btn.disabled = true;
+    button.disabled = true;
+    button.innerText = "Generating...";
 
-    container.classList.remove('hidden');
-
-    output.innerText =
-      'Connecting to Groq and generating your code...\n\n' +
-      'Large projects may take a little longer.';
+    container.classList.remove("hidden");
+    output.innerText = "Connecting to Groq...";
 
     try {
+      const response = await fetch(GROQ_URL, {
+        method: "POST",
 
-      // =========================================================
-      // PRIMARY MODEL
-      // =========================================================
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + apiKey
+        },
 
-      let res = await queryGroq(
-        apiKey,
-        prompt,
-        engine,
-        PRIMARY_MODEL
-      );
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an expert Roblox Studio Luau developer. " +
+                "Write clean, working, production-quality Roblox Luau code. " +
+                "Clearly explain where every script belongs in Roblox Studio. " +
+                "Use ModuleScripts for large systems. " +
+                "Never use nonexistent Roblox APIs. " +
+                "Never put API keys or secrets into generated Roblox code."
+            },
+
+            {
+              role: "user",
+              content:
+                "Target platform: " + engine + "\n\n" +
+                "User request:\n" + prompt
+            }
+          ],
+
+          temperature: 0.2,
+
+          max_tokens: 8192
+        })
+      });
+
+      const text = await response.text();
 
       let data;
 
       try {
-        data = await res.json();
-      } catch (jsonError) {
+        data = JSON.parse(text);
+      } catch (error) {
         output.innerText =
-          'Groq returned an invalid response.\n\n' +
-          'HTTP status: ' + res.status;
+          "Groq returned an unexpected response.\n\n" +
+          "HTTP Status: " + response.status + "\n\n" +
+          text;
 
         return;
       }
 
-
-      // =========================================================
-      // BACKUP MODEL
-      // =========================================================
-
-      if (!res.ok || data.error) {
-
-        const firstError =
-          data?.error?.message ||
-          ('HTTP ' + res.status);
+      if (!response.ok) {
+        const errorMessage =
+          data &&
+          data.error &&
+          data.error.message
+            ? data.error.message
+            : "Unknown Groq error.";
 
         output.innerText =
-          'Primary model failed:\n' +
-          firstError +
-          '\n\nTrying backup model...';
+          "Groq API Error\n\n" +
+          "HTTP Status: " + response.status + "\n\n" +
+          errorMessage;
 
-        res = await queryGroq(
-          apiKey,
-          prompt,
-          engine,
-          BACKUP_MODEL
-        );
+        console.error("Groq error:", data);
 
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          output.innerText =
-            'The backup model also returned an invalid response.\n\n' +
-            'HTTP status: ' + res.status;
-
-          return;
-        }
+        return;
       }
 
-
-      // =========================================================
-      // SUCCESS
-      // =========================================================
-
       if (
-        res.ok &&
-        data &&
         data.choices &&
         data.choices.length > 0 &&
         data.choices[0].message
       ) {
-
-        const generatedText =
-          data.choices[0].message.content;
-
-        if (generatedText) {
-          output.innerText = generatedText;
-        } else {
-          output.innerText =
-            'Groq returned an empty response.';
-        }
-
-        return;
-      }
-
-
-      // =========================================================
-      // ERROR HANDLING
-      // =========================================================
-
-      if (data && data.error) {
-
-        let message = data.error.message || 'Unknown Groq error.';
-
-        if (data.error.code === 'invalid_api_key') {
-          message =
-            'Your Groq API key is invalid or expired.\n\n' +
-            'Create/check your API key in the Groq console.';
-        }
-
-        else if (
-          data.error.code === 'model_not_found' ||
-          message.toLowerCase().includes('model')
-        ) {
-          message =
-            'The selected Groq model is unavailable.\n\n' +
-            'Current models used by this generator:\n' +
-            PRIMARY_MODEL + '\n' +
-            BACKUP_MODEL;
-        }
-
-        else if (
-          message.toLowerCase().includes('rate')
-        ) {
-          message =
-            'Groq rate limit reached.\n\n' +
-            'Please wait a moment and try again.';
-        }
-
         output.innerText =
-          'Groq Error:\n\n' + message;
+          data.choices[0].message.content || "No code was returned.";
 
-        return;
+      } else {
+        output.innerText =
+          "Groq responded, but no generated code was found.\n\n" +
+          JSON.stringify(data, null, 2);
       }
 
+    } catch (error) {
+      console.error("Request failed:", error);
 
       output.innerText =
-        'Unexpected response from Groq.\n\n' +
-        JSON.stringify(data, null, 2);
-
-    }
-
-    catch (err) {
-
-      console.error('Groq request error:', err);
-
-      output.innerText =
-        'Network error.\n\n' +
-        'Could not connect to Groq.\n\n' +
-        'Possible causes:\n' +
-        '• No internet connection\n' +
-        '• Invalid API key\n' +
-        '• Browser/network blocking the request\n' +
-        '• Groq API temporarily unavailable\n\n' +
-        'Technical error:\n' +
-        err.message;
+        "Could not connect to Groq.\n\n" +
+        "Error:\n" +
+        error.message +
+        "\n\n" +
+        "Open your browser's Developer Console (F12) for more details.";
     }
 
     finally {
-      btn.innerText = 'Generate Code';
-      btn.disabled = false;
+      button.disabled = false;
+      button.innerText = "Generate Code";
     }
   }
 
 
-  // =============================================================
-  // COPY GENERATED CODE
-  // =============================================================
-
   async function copyCode() {
+    const code = document.getElementById("outputCode").innerText;
 
-    const codeText =
-      document.getElementById('outputCode').innerText;
-
-    if (!codeText) {
+    if (!code) {
       return;
     }
 
     try {
+      await navigator.clipboard.writeText(code);
 
-      await navigator.clipboard.writeText(codeText);
+      alert("Code copied to clipboard!");
 
-      const button =
-        document.querySelector(
-          '#outputContainer button'
-        );
-
-      if (button) {
-
-        const originalText = button.innerText;
-
-        button.innerText = 'Copied!';
-
-        setTimeout(() => {
-          button.innerText = originalText;
-        }, 1500);
-      }
-
-    }
-
-    catch (err) {
-
+    } catch (error) {
       alert(
-        'Could not copy automatically. ' +
-        'Please select the generated code and copy it manually.'
+        "Copy failed. Please select the generated code and copy it manually."
       );
     }
   }
